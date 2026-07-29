@@ -35,11 +35,13 @@ namespace
         di.addDetection(MANUFACTURER_DEV,  0x37,  0x02);
         di.addDetection(MANUFACTURER_DEV,  0x02,  0x00);
         di.addDetection(MANUFACTURER_DEV,  0x02,  0x01);
-        // Apator Otus 1/3 seems to use both, depending on a frame.
-        // Frames with APA are successfully decoded by this driver
-        // Frames with APT are not - and their content is unknown - perhaps it broadcasts two data formats?
         di.addDetection(MANUFACTURER_APA,  0x02,  0x01);
-        //di.addDetection(MANUFACTURER_APT,  0x02,  0x01);
+        
+        // Детекция Gama 350 / EGM (0x14ED)
+        di.addDetection(0x14ED,  0x02,  0x01);
+        di.addDetection(0x14ED,  0x02,  0x02);
+        di.addDetection(0x14ED,  0x02,  0x00);
+
         di.setConstructor([](MeterInfo& mi, DriverInfo& di){ return std::shared_ptr<Meter>(new Driver(mi, di)); });
     });
 
@@ -87,6 +89,7 @@ namespace
             .set(DifVifKey("0BAB3C"))
             );
 
+        // Напряжения по фазам (с прямыми ключами Tauron Gama 350)
         addNumericFieldWithExtractor(
             "voltage_at_phase_1",
             "Voltage at phase L1.",
@@ -94,9 +97,7 @@ namespace
             Quantity::Voltage,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::Voltage)
-            .add(VIFCombinable::AtPhase1)
+            .set(DifVifKey("0AFDC9FC01"))
             );
 
         addNumericFieldWithExtractor(
@@ -106,9 +107,7 @@ namespace
             Quantity::Voltage,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::Voltage)
-            .add(VIFCombinable::AtPhase2)
+            .set(DifVifKey("0AFDC9FC02"))
             );
 
         addNumericFieldWithExtractor(
@@ -118,9 +117,7 @@ namespace
             Quantity::Voltage,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::Voltage)
-            .add(VIFCombinable::AtPhase3)
+            .set(DifVifKey("0AFDC9FC03"))
             );
 
         addStringFieldWithExtractor(
@@ -132,28 +129,25 @@ namespace
             .set(VIFRange::DateTime)
             );
 
+        // Тарифы потребления (с прямыми ключами Tauron)
         addNumericFieldWithExtractor(
             "total_energy_consumption_tariff_1",
             "The total energy consumption recorded by this meter on tariff 1.",
-            DEFAULT_PRINT_PROPERTIES, // ,
+            DEFAULT_PRINT_PROPERTIES,
             Quantity::Energy,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::AnyEnergyVIF)
-            .set(TariffNr(1))
+            .set(DifVifKey("8E1003"))
             );
 
         addNumericFieldWithExtractor(
             "total_energy_consumption_tariff_2",
             "The total energy consumption recorded by this meter on tariff 2.",
-            DEFAULT_PRINT_PROPERTIES, // ,
+            DEFAULT_PRINT_PROPERTIES,
             Quantity::Energy,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::AnyEnergyVIF)
-            .set(TariffNr(2))
+            .set(DifVifKey("8E2003"))
             );
 
         addNumericFieldWithExtractor(
@@ -163,11 +157,10 @@ namespace
             Quantity::Energy,
             VifScaling::Auto, DifSignedness::Signed,
             FieldMatcher::build()
-            .set(MeasurementType::Instantaneous)
-            .set(VIFRange::AnyEnergyVIF)
-            .set(TariffNr(3))
+            .set(DifVifKey("8E3003"))
             );
 
+        // Тарифы генерации
         addNumericFieldWithExtractor(
             "total_energy_production_tariff_1",
             "The total energy production recorded by this meter on tariff 1.",
@@ -284,41 +277,5 @@ namespace
         );
     }
 }
-
-// Test: MyElectricity1 amiplus 10101010 NOKEY
-// telegram=|4E4401061010101002027A00004005_2F2F0E035040691500000B2B300300066D00790C7423400C78371204860BABC8FC100000000E833C8074000000000BAB3C0000000AFDC9FC0136022F2F2F2F2F|
-// {"_":"telegram","media":"electricity","meter":"amiplus","name":"MyElectricity1","id":"10101010","total_energy_consumption_kwh":15694.05,"current_power_consumption_kw":0.33,"total_energy_production_kwh":7.48,"current_power_production_kw":0,"voltage_at_phase_1_v":236,"device_date_time":"2019-03-20 12:57:00","timestamp":"1111-11-11T11:11:11Z"}
-// |MyElectricity1;10101010;15694.05;0.33;7.48;0;236;null;null;null;null;null;null;null;null;1111-11-11 11:11.11
-
-// Test: MyElectricity2 amiplus 00254358 NOKEY
-// Comment: amiplus/apator electricity meter with three phase voltages
-// telegram=|5E44B6105843250000027A2A005005_2F2F0C7835221400066D404708AC2A400E032022650900000E833C0000000000001B2B9647000B2B5510000BAB3C0000000AFDC9FC0135020AFDC9FC0245020AFDC9FC0339020BABC8FC100000002F2F|
-// {"_":"telegram","media":"electricity","meter":"amiplus","name":"MyElectricity2","id":"00254358","total_energy_consumption_kwh":9652.22,"current_power_consumption_kw":1.055,"total_energy_production_kwh":0,"current_power_production_kw":0,"voltage_at_phase_1_v":235,"voltage_at_phase_2_v":245,"voltage_at_phase_3_v":239,"max_power_consumption_kw":4.796,"device_date_time":"2021-10-12 08:07:00","timestamp":"1111-11-11T11:11:11Z"}
-// |MyElectricity2;00254358;9652.22;1.055;0;0;235;245;239;null;null;null;null;null;null;1111-11-11 11:11.11
-
-// Test: MyElectricity3 amiplus 86064864 NOKEY
-// Comment: amiplus/apator electricity meter with three phase voltages and 2 tariffs.
-// telegram=|804401066448068602027A000070052F2F_066D1E5C11DA21400C78644806868E10036110012500008E20038106531800008E10833C9949000000008E20833C8606000000001B2B5228020B2B3217000BAB3C0000000AFDC9FC0131020AFDC9FC0225020AFDC9FC0331020BABC8FC100000002F2F2F2F2F2F2F2F2F2F2F2F2FDE47|
-// {"_":"telegram","media":"electricity","meter":"amiplus","name":"MyElectricity3","id":"86064864","current_power_consumption_kw":1.732,"current_power_production_kw":0,"voltage_at_phase_1_v":231,"voltage_at_phase_2_v":225,"voltage_at_phase_3_v":231,"device_date_time":"2022-01-26 17:28:30","total_energy_consumption_tariff_1_kwh":25011.061,"total_energy_consumption_tariff_2_kwh":18530.681,"total_energy_production_tariff_1_kwh":4.999,"total_energy_production_tariff_2_kwh":0.686,"max_power_consumption_kw":22.852,"timestamp":"1111-11-11T11:11:11Z"}
-// |MyElectricity3;86064864;null;1.732;null;0;231;225;231;25011.061;18530.681;null;4.999;0.686;null;1111-11-11 11:11.11
-
-// Test: MyElectricity4 amiplus 55090884 NOKEY
-// Comment: amiplus/apator electricity meter with single phase voltage - Otus 1
-// telegram=|7E4401068408095501027A7C1070052F2F_066DDE5E150D39800C78840809550AFDC9FC0139028E30833C0000000000008E20833C0000000000008E10833C4301000000000BABC8FC100000008E10035336420200008E20030000000000008E30030000000000000B2B9502000BAB3C0000002F2F2F2F2F2F2F2F2F2F2F2F2F|
-// {"_":"telegram","media":"electricity","meter":"amiplus","name":"MyElectricity4","id":"55090884","current_power_consumption_kw":0.295,"current_power_production_kw":0,"total_energy_consumption_tariff_1_kwh":2423.653,"total_energy_consumption_tariff_2_kwh":0,"total_energy_consumption_tariff_3_kwh":0,"total_energy_production_tariff_1_kwh":0.143,"total_energy_production_tariff_2_kwh":0,"total_energy_production_tariff_3_kwh":0,"voltage_at_phase_1_v":239,"device_date_time":"2024-09-13 21:30:30","timestamp":"1111-11-11T11:11:11Z"}
-// |MyElectricity4;55090884;null;0.295;null;0;239;null;null;2423.653;0;0;0.143;0;0;1111-11-11 11:11.11
-
-// Test: MyElectricity4 amiplus 00320787 NOKEY
-// telegram=|3e44b6108707320001027a380030052f2f0C7830253390066D6872141239400E031891690000000E833C9265010000000B2B2602000BAB3C0000002F2F2F2F|
-// {"_":"telegram","current_power_consumption_kw": 0.226,"current_power_production_kw": 0,"device_date_time": "2024-09-18 20:50:40","id": "00320787","media": "electricity","meter": "amiplus","name": "MyElectricity4","timestamp": "1111-11-11T11:11:11Z","total_energy_consumption_kwh": 699.118,"total_energy_production_kwh": 16.592}
-// |MyElectricity4;00320787;699.118;0.226;16.592;0;null;null;null;null;null;null;null;null;null;1111-11-11 11:11.11
-
-// Test: MyElectricity5 amiplus 56914504 NOKEY
-// telegram=|9e4401060445915601027a3d0390052f2f066dc076091935800c78044591560e032088300000008e10032088300000008e20030000000000008e30030000000000008e8010030000000000000e833c2702000000008e10833c2702000000008e20833c0000000000008e30833c0000000000008e8010833c0000000000000afdc8fc0136240afdc8fc0262240afdc8fc0389222f2f2f2f2f2f2f2f2f2f2f2f|
-// {"_":"telegram","media":"electricity","meter":"amiplus","name":"MyElectricity5","id":"56914504","total_energy_consumption_kwh":308.82,"total_energy_consumption_tariff_1_kwh":308.82,"total_energy_consumption_tariff_2_kwh":0,"total_energy_consumption_tariff_3_kwh":0,"total_energy_production_kwh":0.227,"total_energy_production_tariff_1_kwh":0.227,"total_energy_production_tariff_2_kwh":0,"total_energy_production_tariff_3_kwh":0,"voltage_at_phase_1_v":243.6,"voltage_at_phase_2_v":246.2,"voltage_at_phase_3_v":228.9,"device_date_time":"2024-05-25 09:54:00","timestamp":"1111-11-11T11:11:11Z"}
-// |MyElectricity5;56914504;308.82;null;0.227;null;243.6;246.2;228.9;308.82;0;0;0.227;0;0;1111-11-11 11:11.11
-
-// Test: Apator Otus3 amiplus 56859196 NOKEY
-// telegram=|CE4401069691855601027AC600C0052F2F066D4073124234800C78969185560E032050260600008E10032050260600000E833C9299930700008E10833C9299930700000EFB82736461630100008E10FB82736461630100000EFB82F33C9248050500008E10FB82F33C9248050500000B2B6800000BAB3C0300000BFB142303000BFB943C1803000AFDC8FC0197220AFDC8FC0231230AFDC8FC035123146DADAA423414ED3C80AB42340BFDDAFC011400000BFDDAFC023401000BFDDAFC030302002F2F2F2F2F2F2F2F2F2F2F2F2F2F|
 
 KEEP_DRIVER(amiplus);
